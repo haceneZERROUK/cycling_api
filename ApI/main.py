@@ -61,11 +61,42 @@ def login(user: User):
 @app.post("/performances")
 def add_performance(performance: Performance, token: str = Depends(get_current_user)):
     current_user = get_current_user(token)
-    if current_user["fonction"] != "cycliste":
-        raise HTTPException(status_code=403, detail="Forbidden")
+    if current_user["fonction"] != "cyclist":
+        raise HTTPException(status_code=403, detail="acces denied")
     conn = get_db_connection()
     conn.execute("INSERT INTO performances (time, power, oxygen, cadence, HR, RF, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
                  (performance.time, performance.power, performance.oxygen, performance.cadence, performance.HR, performance.RF, current_user["id"]))
     conn.commit()
     conn.close()
     return {"message": "Performance added"}
+
+
+# suppression d’une performance par un cycliste
+@app.delete("/performances/{performance_id}")
+def delete_performance(performance_id: int, token: str = Depends(get_current_user)):
+    current_user = get_current_user(token)
+    if current_user["fonction"] != "cyclist":
+        raise HTTPException(status_code=403, detail="acces denied")
+    
+    conn = get_db_connection()
+    conn.execute("DELETE FROM performances WHERE id = ? AND user_id = ?", (performance_id, current_user["id"]))
+    conn.commit()
+    conn.close()
+    return {"message": "Performance deleted"}
+
+
+# visualisation des performances par un entraineur
+@app.get("/coach/performances")
+def view_performances(token: str = Depends(get_current_user)):
+    current_user = get_current_user(token)
+    if current_user["fonction"] != "coach":
+        raise HTTPException(status_code=403, detail="acces denied, only coach can access this route")
+    
+    #connexion a la base de données pour obtenir les performances
+    ##
+    ##
+    ##
+    ##
+
+    conn = get_db_connection()
+    cursor = conn.execute("SELECT * FROM performances")
