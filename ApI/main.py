@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from auth import hash_password, verify_password, create_token, decode_token
 from database import get_db_connection
 from datetime import timedelta
+import sqlite3
 
 app = FastAPI()
 
@@ -11,7 +12,7 @@ app = FastAPI()
 class User(BaseModel):
     username: str
     password: str
-    fonction: str # entraineur ou cycliste
+    fonction: str # coach or cyclist
 
 # Pydantic pour données de performances
 
@@ -22,6 +23,7 @@ class Performance(BaseModel):
     cadence : int
     HR : float
     RF : float
+    test_date : str
 
 # authentification
 def get_current_user(token : str):
@@ -93,10 +95,65 @@ def view_performances(token: str = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="acces denied, only coach can access this route")
     
     #connexion a la base de données pour obtenir les performances
-    ##
-    ##
-    ##
-    ##
+    
 
     conn = get_db_connection()
-    cursor = conn.execute("SELECT * FROM performances")
+    cursor = conn.execute("SELECT * FROM performances"
+    #
+    #
+    #
+    #
+    #
+
+    performances = cursor.fetchall()
+    conn.close()
+
+    # Mise en forme des données pour les retourner
+    return {"performances": [dict(performance) for performance in performances]}
+
+   
+   
+     cursor = conn.execute("""
+     SELECT p.id AS performance_id, 
+            p.athlete_id, 
+            u.username AS cyclist_name, 
+            p.time,
+            p.power,
+            p.oxygen,
+            p.cadence,
+            p.HR,
+            p.RF, 
+            p.test_date
+     FROM performances p
+     INNER JOIN users u ON p.cyclist_id = u.id
+    """)
+
+    # Entraîneurs : Modifier une performance
+@app.put("/coach/performances/{performance_id}")
+def update_performance(performance_id: int, performance: Performance, token: str = Depends(get_current_user)):
+    current_user = get_current_user(token)
+    if current_user["role"] != "coach":
+        raise HTTPException(status_code=403, detail="acces denied")
+
+    conn = get_db_connection()
+    conn.execute("""
+    UPDATE performances
+    SET time = ?, power = ?, oxygen = ?, cadence = ?, HR = ?, RF = ?, test_date = ?
+    WHERE id = ?
+    """, (performance.time, performance.power, performance.oxygene, performance.cadence, performance.HR, performance.RF, performance.test_date, performance_id))
+    conn.commit()
+    conn.close()
+    return {"message": "Performance updated by coach"}
+
+# Entraîneurs : Supprimer une performance
+@app.delete("/coach/performances/{performance_id}")
+def delete_performance_as_coach(performance_id: int, token: str = Depends(get_current_user)):
+    current_user = get_current_user(token)
+    if current_user["role"] != "coach":
+        raise HTTPException(status_code=403, detail="acces denied")
+
+    conn = get_db_connection()
+    conn.execute("DELETE FROM performances WHERE id = ?", (performance_id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Performance deleted by coach"}
