@@ -172,3 +172,52 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# Environnements virtuels
+venv/
+.env/
+*.env
+
+# Fichiers Python compilés
+__pycache__/
+*.py[cod]
+
+# Fichiers IDE
+.vscode/
+.idea/
+
+# Fichiers de logs
+*.log
+
+# Cache et dossiers temporaires
+*.db
+*.sqlite3
+*.sqlite
+*.pyc
+*.pyo
+*.pyd
+
+# Dossier de tests si vous utilisez pytest
+.coverage
+.tox/
+.nox/
+nosetests.xml
+*.cover
+*.hypothesis/
+
+# Dossiers de configuration pour des outils spécifiques
+Dockerfile.*
+.envrc
+.envrc.local
+
+# Configuration spécifique à l'éditeur
+*.sublime-workspace
+*.sublime-project
+
+# Dossiers de build ou de distribution
+dist/
+build/
+.eggs/
+*.egg-info/
+
