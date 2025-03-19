@@ -22,7 +22,7 @@ def verify_password(password: str, hashed: str) -> bool:
 # fonction de création des tokens
 def create_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
-    expire = datetime.uctnow() + expires_delta
+    expire = datetime.utcnow() + expires_delta
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
 

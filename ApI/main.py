@@ -8,22 +8,25 @@ import sqlite3
 app = FastAPI()
 
 
-# configuration Pydantic pour la création d'un utilisateur
-class User(BaseModel):
-    username: str
-    password: str
-    fonction: str # coach or cyclist
+# # configuration Pydantic pour la création d'un utilisateur
+# class User(BaseModel):
+#     username: str
+#     password: str
+#     fonction: str # coach or cyclist
 
-# Pydantic pour données de performances
+conn = sqlite3.connect('database.db')
+cur = conn.cursor()
 
-class Performance(BaseModel):
-    time : int
-    power : int
-    oxygen : float
-    cadence : int
-    HR : float
-    RF : float
-    test_date : str
+
+
+cur.execute("""
+INSERT INTO cyclist (name, gender, age, weight, height, vo2max, ppo, p1, p2, p3)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""", cyclist)
+
+
+conn.commit()
+conn.close()
 
 # authentification
 def get_current_user(token : str):
@@ -33,12 +36,15 @@ def get_current_user(token : str):
 
 # incription d’un utilisateur
 @app.post("/register") 
-def register(user: User):
-    conn = get_db_connection()
-    hashed_password = hash_password(user.password)
+def register(data: dict):
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+   
+    hashed_password = hash_password(data["password"])
     try:
-        conn.execute("INSERT INTO users (username, hashed_password, fonction) VALUES (?, ?, ?)",
-                     (user.username, hashed_password, user.fonction))
+        conn.execute("INSERT INTO users (username, cyclist_id hashed_password, fonction) VALUES (?, ?, ?)",
+                     (data["username"], hashed_password, data["fonction"]))
         conn.commit()
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="User already exists")
@@ -49,7 +55,7 @@ def register(user: User):
 
 # connexion d’un utilisateur
 @app.post("/login")
-def login(user: User):
+def login(user):
     conn = get_db_connection()
     cursor = conn.execute("SELECT * FROM users WHERE username = ?", (user.username,))
     user_data = cursor.fetchone()
@@ -66,7 +72,7 @@ def add_performance(performance: Performance, token: str = Depends(get_current_u
     if current_user["fonction"] != "cyclist":
         raise HTTPException(status_code=403, detail="acces denied")
     conn = get_db_connection()
-    conn.execute("INSERT INTO performances (time, power, oxygen, cadence, HR, RF, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    conn.execute("INSERT INTO performances (time, Power, Oxygen, Cadence, HR, RF, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
                  (performance.time, performance.power, performance.oxygen, performance.cadence, performance.HR, performance.RF, current_user["id"]))
     conn.commit()
     conn.close()

@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS user(
     cyclist_id INTEGER,
     username TEXT,
     password TEXT,
+    fonction TEXT,
     FOREIGN KEY (cyclist_id) REFERENCES cyclist(id)
 )
 """)
