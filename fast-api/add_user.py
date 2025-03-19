@@ -7,7 +7,7 @@ conn = sqlite3.connect('database.db')
 cur = conn.cursor()
 
 # Sélectionner tous les cyclistes de la table "cyclist"
-cur.execute("SELECT id FROM cyclist")
+cur.execute("SELECT id FROM cyclists")
 cyclists = cur.fetchall()
 
 # Ajouter un compte utilisateur pour chaque cycliste
@@ -21,7 +21,7 @@ for cyclist in cyclists:
 
     # Insérer l'utilisateur dans la table "user"
     cur.execute("""
-    INSERT INTO user (cyclist_id, username, password, fonction)
+    INSERT INTO users (cyclist_id, username, password, fonction)
     VALUES (?, ?, ?, ?)
     """, (cyclist_id, username, password, fonction))
 
@@ -34,7 +34,7 @@ password = hashlib.sha256(mdp.encode('utf-8')).hexdigest()  # Le mot de passe es
 fonction = "coach"  # fonction de l’utilisateur
 
 cur.execute("""
-    INSERT INTO user (cyclist_id, username, password, fonction)
+    INSERT INTO users (cyclist_id, username, password, fonction)
     VALUES (?, ?, ?, ?)
     """, (cyclist_id, username, password, fonction))
 

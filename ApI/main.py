@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
-from auth import hash_password, verify_password, create_token, decode_token
+from .auth import hash_password, verify_password, create_token, decode_token
 from datetime import timedelta
 import sqlite3
 
@@ -17,13 +17,13 @@ def get_current_user(token : str):
 @app.post("/register") 
 def register(data: dict):
     
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect('database.db')
     cur = conn.cursor()
    
     hashed_password = hash_password(data["password"])
 
     try:
-        cur.execute("INSERT INTO users (cyclist_id, username, password, fonction) VALUES (?, ?, ?, ?)",
+        conn.execute("INSERT INTO users (cyclist_id, username, password, fonction) VALUES (?, ?, ?, ?)",
                      (data['cyclist_id'],data["username"], hashed_password, data["fonction"]))
         conn.commit()
     except sqlite3.IntegrityError:
@@ -36,34 +36,51 @@ def register(data: dict):
 
 @app.post("/login")
 def login(user: dict):
-    print(user)
-    conn = sqlite3.connect('../database.db')
+    conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row  # Pour que cur.fetchone() retourne un dictionnaire
     cur = conn.cursor()
     # Rechercher l'utilisateur dans la base de données
-    user_data = cur.execute("SELECT * FROM users WHERE username = ?", (user["username"],)).fetchone()
+    user_data = conn.execute("SELECT * FROM users WHERE username = ?", (user["username"],)).fetchone()
     conn.close()
     user_data = dict(user_data)
     if not user_data or not verify_password(user['password'],user_data["password"]):  # 'password' est la colonne dans la base
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
     # Création du token
-    print(user_data)
     token = create_token({"sub": user_data["id"], "fonction": user_data["fonction"]}, timedelta(hours=1))
-    
+    print("===================",token)
     return {"access_token": token, "token_type": "bearer"}
 
-# ajour d’une performance par un cycliste
+
 @app.post("/performances")
-def add_performance(performance, token: str = Depends(get_current_user)):
+def add_performance(performance: dict, token: str = Depends(get_current_user)):
+    # Connexion à la base de données
+    print(performance)
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row  # Pour que cur.fetchone() retourne un dictionnaire
+    cur = conn.cursor()
+
+    # Récupérer l'utilisateur actuel depuis le token
     current_user = get_current_user(token)
-    if current_user["fonction"] != "cyclist":
-        raise HTTPException(status_code=403, detail="acces denied")
-    conn = ()
-    conn.execute("INSERT INTO performances (time, Power, Oxygen, Cadence, HR, RF, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                 (performance.time, performance.power, performance.oxygen, performance.cadence, performance.HR, performance.RF, current_user["id"]))
+
+    # Vérifier que l'utilisateur est un 'cyclist' ou un 'coach'
+    if current_user["fonction"] not in ["coach"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+
+
+    print('========================',performance)
+    # Insérer les données dans la table "test_data"
+    cur.execute("""
+    INSERT INTO tests_data (cyclist_id, vo2max, power, cadence, hr, rf)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """, (performance['cyclist_id'], performance['vo2max'], performance['power'], performance['cadence'], performance['hr'], performance['rf']))
+
+
+    # Commit et fermer la connexion
     conn.commit()
     conn.close()
+
     return {"message": "Performance added"}
 
 

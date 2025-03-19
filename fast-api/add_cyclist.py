@@ -14,11 +14,11 @@ cyclists_data = [
     ('sbj_7', 'm', 22.1, 67.9, 185, 4650, 360, 134, 286, 333,),
 ]
 
-for cyclist in cyclists_data:
+for c in cyclists_data:
     cur.execute("""
-    INSERT INTO cyclist (name, gender, age, weight, height, vo2max, ppo, p1, p2, p3)
+    INSERT INTO cyclists (name, gender, age, weight, height, vo2max, ppo, p1, p2, p3)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, cyclist)
+    """, c)
 
 
     conn.commit()

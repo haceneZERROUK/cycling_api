@@ -8,7 +8,7 @@ cur = conn.cursor()
 
 
 cur.execute("""
-CREATE TABLE IF NOT EXISTS cyclist(
+CREATE TABLE IF NOT EXISTS cyclists(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
     gender TEXT,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS cyclist(
 
 
 cur.execute("""
-CREATE TABLE IF NOT EXISTS user(
+CREATE TABLE IF NOT EXISTS users(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cyclist_id INTEGER,
     username TEXT,
@@ -37,14 +37,12 @@ CREATE TABLE IF NOT EXISTS user(
 
 
 cur.execute("""
-CREATE TABLE IF NOT EXISTS test_data(
+CREATE TABLE IF NOT EXISTS tests_data(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cyclist_id INTEGER,
-    type_test TEXT,
-    time INTEGER,
     power INTEGER,
-    oxygen REAL,
-    cadence INTEGER,
+    vo2max REAL,
+    cadence REAL,
     hr REAL,
     rf REAL,
     FOREIGN KEY (cyclist_id) REFERENCES cyclist(id)
