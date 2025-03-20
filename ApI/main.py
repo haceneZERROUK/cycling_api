@@ -59,9 +59,10 @@ def login(user: dict):
 # Ajout des performances
 @app.post("/performances")
 def add_performance(performance: dict, current_user: dict = Depends(get_current_user)):
+    print(current_user)
     if current_user["fonction"] not in ["coach"]:
         raise HTTPException(status_code=403, detail="Access denied")
-
+    print(performance)
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -78,18 +79,7 @@ def add_performance(performance: dict, current_user: dict = Depends(get_current_
     return {"message": "Performance added"}
 
 
-# # suppression d’une performance par un cycliste
-# @app.delete("/performances/{performance_id}")
-# def delete_performance(performance_id: int, token: str = Depends(get_current_user)):
-#     current_user = get_current_user(token)
-#     if current_user["fonction"] != "cyclist":
-#         raise HTTPException(status_code=403, detail="acces denied")
-    
-#     conn = get_db_connection()
-#     conn.execute("DELETE FROM performances WHERE id = ? AND user_id = ?", (performance_id, current_user["id"]))
-#     conn.commit()
-#     conn.close()
-#     return {"message": "Performance deleted"}
+
 
 
 # # visualisation des performances par un entraineur
@@ -98,8 +88,19 @@ def add_performance(performance: dict, current_user: dict = Depends(get_current_
 #     current_user = get_current_user(token)
 #     if current_user["fonction"] != "coach":
 #         raise HTTPException(status_code=403, detail="acces denied, only coach can access this route")
+
+
+# visualisation de l'athele avec le meilleur poids puissance
+@app.get("/poidspuissance")
+def view_performances():
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
     
-#     #connexion a la base de données pour obtenir les performances
+
+    cur.execute("select name, cyclists.id from cyclists left join tests_data on cyclists.id = cyclist_id group by cyclists.id having weight/power = max(weight/power)")
+    result = cur.fetchone()
+    return result
+    #connexion a la base de données pour obtenir les performances
     
 
 #     conn = get_db_connection()
