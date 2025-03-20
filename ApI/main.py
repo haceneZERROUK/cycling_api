@@ -1,16 +1,20 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, status
 from .auth import hash_password, verify_password, create_token, decode_token
-from datetime import timedelta
+from datetime import timedelta, datetime
 import sqlite3
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 app = FastAPI()
 
 
 
 # authentification
-def get_current_user(token : str):
-    payload = decode_token(token)
-    return {"id": payload["sub"], "fonction": payload["fonction"]}
+def get_current_user(token : str = Depends(OAuth2PasswordBearer(tokenUrl="login"))):
+    try:
+        payload = decode_token(token)
+        return {"id": payload["sub"], "fonction": payload["fonction"]}
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
 # incription d’un utilisateur
@@ -52,32 +56,22 @@ def login(user: dict):
     return {"access_token": token, "token_type": "bearer"}
 
 
+# Ajout des performances
 @app.post("/performances")
-def add_performance(performance: dict, token: str = Depends(get_current_user)):
-    # Connexion à la base de données
-    print(performance)
-    conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row  # Pour que cur.fetchone() retourne un dictionnaire
-    cur = conn.cursor()
-
-    # Récupérer l'utilisateur actuel depuis le token
-    current_user = get_current_user(token)
-
-    # Vérifier que l'utilisateur est un 'cyclist' ou un 'coach'
+def add_performance(performance: dict, current_user: dict = Depends(get_current_user)):
     if current_user["fonction"] not in ["coach"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
 
+    conn = sqlite3.connect("database.db")
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
 
-    print('========================',performance)
-    # Insérer les données dans la table "test_data"
     cur.execute("""
     INSERT INTO tests_data (cyclist_id, vo2max, power, cadence, hr, rf)
     VALUES (?, ?, ?, ?, ?, ?)
-    """, (performance['cyclist_id'], performance['vo2max'], performance['power'], performance['cadence'], performance['hr'], performance['rf']))
+    """, (performance["cyclist_id"], performance["vo2max"], performance["power"], 
+          performance["cadence"], performance["hr"], performance["rf"]))
 
-
-    # Commit et fermer la connexion
     conn.commit()
     conn.close()
 
@@ -139,22 +133,22 @@ def add_performance(performance: dict, token: str = Depends(get_current_user)):
 #      INNER JOIN users u ON p.cyclist_id = u.id
 #     """)
 
-#     # Entraîneurs : Modifier une performance
-# @app.put("/coach/performances/{performance_id}")
-# def update_performance(performance_id: int, performance: Performance, token: str = Depends(get_current_user)):
-#     current_user = get_current_user(token)
-#     if current_user["role"] != "coach":
-#         raise HTTPException(status_code=403, detail="acces denied")
+# #     # Entraîneurs : Modifier une performance
+# # @app.put("/coach/performances/{performance_id}")
+# # def update_performance(performance_id: int, performance: Performance, token: str = Depends(get_current_user)):
+# #     current_user = get_current_user(token)
+# #     if current_user["role"] != "coach":
+# #         raise HTTPException(status_code=403, detail="acces denied")
 
-#     conn = get_db_connection()
-#     conn.execute("""
-#     UPDATE performances
-#     SET time = ?, power = ?, oxygen = ?, cadence = ?, HR = ?, RF = ?, test_date = ?
-#     WHERE id = ?
-#     """, (performance.time, performance.power, performance.oxygene, performance.cadence, performance.HR, performance.RF, performance.test_date, performance_id))
-#     conn.commit()
-#     conn.close()
-#     return {"message": "Performance updated by coach"}
+# #     conn = get_db_connection()
+# #     conn.execute("""
+# #     UPDATE performances
+# #     SET time = ?, power = ?, oxygen = ?, cadence = ?, HR = ?, RF = ?, test_date = ?
+# #     WHERE id = ?
+# #     """, (performance.time, performance.power, performance.oxygene, performance.cadence, performance.HR, performance.RF, performance.test_date, performance_id))
+# #     conn.commit()
+# #     conn.close()
+# #     return {"message": "Performance updated by coach"}
 
 # # Entraîneurs : Supprimer une performance
 # @app.delete("/coach/performances/{performance_id}")
