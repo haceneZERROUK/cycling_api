@@ -3,18 +3,22 @@ from .auth import hash_password, verify_password, create_token, decode_token
 from datetime import timedelta, datetime
 import sqlite3
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import jwt
 
 app = FastAPI()
 
-
+oauth_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 # authentification
-def get_current_user(token : str = Depends(OAuth2PasswordBearer(tokenUrl="login"))):
+def get_current_user(token : str = Depends(oauth_scheme)):
     try:
         payload = decode_token(token)
+        print(payload["sub"])
         return {"id": payload["sub"], "fonction": payload["fonction"]}
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+
 
 
 # incription d’un utilisateur
@@ -51,17 +55,20 @@ def login(user: dict):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
     # Création du token
-    token = create_token({"sub": user_data["id"], "fonction": user_data["fonction"]}, timedelta(hours=1))
+    print(user_data)
+    token = create_token({"sub": str(user_data["id"]), "fonction": user_data["fonction"]}, timedelta(hours=1))
     print("===================",token)
     return {"access_token": token, "token_type": "bearer"}
 
 
+
 # Ajout des performances
 @app.post("/performances")
-def add_performance(performance: dict, current_user: dict = Depends(get_current_user)):
+def add_performance(performance: dict, current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
+    print(current_user)
     if current_user["fonction"] not in ["coach"]:
         raise HTTPException(status_code=403, detail="Access denied")
-
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
