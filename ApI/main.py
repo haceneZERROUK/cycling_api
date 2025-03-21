@@ -3,18 +3,22 @@ from .auth import hash_password, verify_password, create_token, decode_token
 from datetime import timedelta, datetime
 import sqlite3
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import jwt
 
 app = FastAPI()
 
-
+oauth_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 # authentification
-def get_current_user(token : str = Depends(OAuth2PasswordBearer(tokenUrl="login"))):
+def get_current_user(token : str = Depends(oauth_scheme)):
     try:
         payload = decode_token(token)
+        print(payload["sub"])
         return {"id": payload["sub"], "fonction": payload["fonction"]}
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+
 
 
 # incription d’un utilisateur
@@ -51,18 +55,19 @@ def login(user: dict):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
     # Création du token
-    token = create_token({"sub": user_data["id"], "fonction": user_data["fonction"]}, timedelta(hours=1))
+    print(user_data)
+    token = create_token({"sub": str(user_data["id"]), "fonction": user_data["fonction"]}, timedelta(hours=1))
     print("===================",token)
     return {"access_token": token, "token_type": "bearer"}
 
 
+
 # Ajout des performances
 @app.post("/performances")
-def add_performance(performance: dict, current_user: dict = Depends(get_current_user)):
-    print(current_user)
+def add_performance(performance: dict, current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
     if current_user["fonction"] not in ["coach"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    print(performance)
     conn = sqlite3.connect("database.db")
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -81,85 +86,188 @@ def add_performance(performance: dict, current_user: dict = Depends(get_current_
 
 
 
+# visualisation des performances par un entraineur
+@app.get("/coach/performances")
+def view_performances(current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
+    if current_user["fonction"] not in ["coach"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if current_user["fonction"] != "coach":
+        raise HTTPException(status_code=403, detail="acces denied, only coach can access this route")
+    
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
 
-# # visualisation des performances par un entraineur
-# @app.get("/coach/performances")
-# def view_performances(token: str = Depends(get_current_user)):
-#     current_user = get_current_user(token)
-#     if current_user["fonction"] != "coach":
-#         raise HTTPException(status_code=403, detail="acces denied, only coach can access this route")
-
+    cur.execute("SELECT * FROM test_data")
+    result = cur.fetchall()
+    return result
 
 # visualisation de l'athele avec le meilleur poids puissance
 @app.get("/poidspuissance")
-def view_performances():
+def view_poids_puissance(current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
+    if current_user["fonction"] not in ["coach"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     conn = sqlite3.connect('database.db')
     cur = conn.cursor()
     
 
     cur.execute("select name, cyclists.id from cyclists left join tests_data on cyclists.id = cyclist_id group by cyclists.id having weight/power = max(weight/power)")
     result = cur.fetchone()
+
+    conn.close()
+    
     return result
-    #connexion a la base de données pour obtenir les performances
+
+
+# visualisation de l'athele avec le meilleur poids puissance
+@app.get("/puissancemax")
+def view_poids_puissance(current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
+    if current_user["fonction"] not in ["coach"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
     
 
-#     conn = get_db_connection()
-#     cursor = conn.execute("SELECT * FROM performances"
-#     #
-#     #
-#     #
-#     #
-#     #
+    cur.execute("""
+        SELECT name, id, ppo
+        FROM cyclists
+        WHERE ppo = (SELECT MAX(ppo) FROM cyclists)
+    """)
+    result = cur.fetchone()
 
-#     performances = cursor.fetchall()
-#     conn.close()
+    return result
 
-#     # Mise en forme des données pour les retourner
-#     return {"performances": [dict(performance) for performance in performances]}
+# visualisation de l'athele avec le meilleur poids puissance
+@app.put("/modification/{i}/power")
+def modifier_power(i: int, power: dict, current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
+    if current_user["fonction"] not in ["coach"]:
+        raise HTTPException(status_code=403, detail="Access denied")
 
-   
-   
-#      cursor = conn.execute("""
-#      SELECT p.id AS performance_id, 
-#             p.athlete_id, 
-#             u.username AS cyclist_name, 
-#             p.time,
-#             p.power,
-#             p.oxygen,
-#             p.cadence,
-#             p.HR,
-#             p.RF, 
-#             p.test_date
-#      FROM performances p
-#      INNER JOIN users u ON p.cyclist_id = u.id
-#     """)
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
 
-# #     # Entraîneurs : Modifier une performance
-# # @app.put("/coach/performances/{performance_id}")
-# # def update_performance(performance_id: int, performance: Performance, token: str = Depends(get_current_user)):
-# #     current_user = get_current_user(token)
-# #     if current_user["role"] != "coach":
-# #         raise HTTPException(status_code=403, detail="acces denied")
+    # Mettre à jour uniquement la colonne 'power'
+    cur.execute("""
+        UPDATE tests_data
+        SET power = ?
+        WHERE ID = ?
+    """, (power['power'], i))
 
-# #     conn = get_db_connection()
-# #     conn.execute("""
-# #     UPDATE performances
-# #     SET time = ?, power = ?, oxygen = ?, cadence = ?, HR = ?, RF = ?, test_date = ?
-# #     WHERE id = ?
-# #     """, (performance.time, performance.power, performance.oxygene, performance.cadence, performance.HR, performance.RF, performance.test_date, performance_id))
-# #     conn.commit()
-# #     conn.close()
-# #     return {"message": "Performance updated by coach"}
+    conn.commit()
+    conn.close()
 
-# # Entraîneurs : Supprimer une performance
-# @app.delete("/coach/performances/{performance_id}")
-# def delete_performance_as_coach(performance_id: int, token: str = Depends(get_current_user)):
-#     current_user = get_current_user(token)
-#     if current_user["role"] != "coach":
-#         raise HTTPException(status_code=403, detail="acces denied")
+    return {"message": "Power mis à jour avec succès."}
 
-#     conn = get_db_connection()
-#     conn.execute("DELETE FROM performances WHERE id = ?", (performance_id,))
-#     conn.commit()
-#     conn.close()
-#     return {"message": "Performance deleted by coach"}
+
+@app.put("/modification/{i}/vo2max")
+def modifier_vo2max(i: int, vo2max: dict, current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
+    if current_user["fonction"] not in ["coach"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+
+    # Mettre à jour uniquement la colonne 'vo2max'
+    cur.execute("""
+        UPDATE tests_data
+        SET vo2max = ?
+        WHERE ID = ?
+    """, (vo2max['vo2max'], i))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "VO2max mis à jour avec succès."}
+
+
+@app.put("/modification/{i}/cadence")
+def modifier_cadence(i: int, cadence: dict, current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
+    if current_user["fonction"] not in ["coach"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+
+    # Mettre à jour uniquement la colonne 'cadence'
+    cur.execute("""
+        UPDATE tests_data
+        SET cadence = ?
+        WHERE ID = ?
+    """, (cadence['cadence'], i))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Cadence mis à jour avec succès."}
+
+
+@app.put("/modification/{i}/hr")
+def modifier_hr(i: int, hr: dict, current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
+    if current_user["fonction"] not in ["coach"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+
+    # Mettre à jour uniquement la colonne 'hr'
+    cur.execute("""
+        UPDATE tests_data
+        SET hr = ?
+        WHERE ID = ?
+    """, (hr['hr'], i))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "HR mis à jour avec succès."}
+
+
+@app.put("/modification/{i}/rf")
+def modifier_rf(i: int, rf: dict, current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
+    if current_user["fonction"] not in ["coach"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+
+    # Mettre à jour uniquement la colonne 'rf'
+    cur.execute("""
+        UPDATE tests_data
+        SET rf = ?
+        WHERE ID = ?
+    """, (rf['rf'], i))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "RF mis à jour avec succès."}
+
+@app.delete("/supprimer/{i}")
+def supprimer_cyclist(i:int, current_user: dict = Depends(oauth_scheme)):
+    current_user = decode_token(current_user)
+    if current_user["fonction"] not in ["coach"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+
+    # Mettre à jour uniquement la colonne 'rf'
+    cur.execute("""
+        DELETE FROM tests_data
+        WHERE id = ?
+    """, (i,))
+
+
+    conn.commit()
+    conn.close()
+
+    return {"message": f"{i} supprimé avec succès."}
